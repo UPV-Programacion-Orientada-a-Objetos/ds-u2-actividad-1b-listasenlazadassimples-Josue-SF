@@ -1,0 +1,418 @@
+#ifndef LST_SNS_H
+#define LST_SNS_H
+
+#include <iostream>
+#include <stdexcept>
+
+template <typename T>
+struct Nodo {
+    T dat;
+    Nodo<T>* sig;
+
+    Nodo(T d) : dat(d), sig(nullptr) {}
+};
+
+template <typename T>
+class ListaSensor {
+private:
+    Nodo<T>* cab;
+
+    void libMem() {
+        Nodo<T>* act = cab;
+        while (act != nullptr) {
+            Nodo<T>* prox = act->sig;
+            std::cout << "    [Log] Nodo<" << typeid(T).name() << "> " << act->dat << " liberado." << std::endl;
+            delete act;
+            act = prox;
+        }
+        cab = nullptr;
+    }
+
+public:
+    ListaSensor() : cab(nullptr) {}
+
+    ~ListaSensor() {
+        libMem();
+    }
+
+    ListaSensor(const ListaSensor& otr) : cab(nullptr) {
+        Nodo<T>* actOtr = otr.cab;
+        while (actOtr != nullptr) {
+            insFin(actOtr->dat); // Inserta copia del dato
+            actOtr = actOtr->sig;
+        }
+    }
+
+    ListaSensor& operator=(const ListaSensor& otr) {
+        if (this != &otr) {
+            libMem();
+            
+            Nodo<T>* actOtr = otr.cab;
+            while (actOtr != nullptr) {
+                insFin(actOtr->dat);
+                actOtr = actOtr->sig;
+            }
+        }
+        return *this;
+    }
+   
+
+    // Insercion al Final
+    void insFin(T dat) {
+        Nodo<T>* nvo = new Nodo<T>(dat);
+        if (cab == nullptr) {
+            cab = nvo;
+        } else {
+            Nodo<T>* act = cab;
+            while (act->sig != nullptr) {
+                act = act->sig;
+            }
+            act->sig = nvo;
+        }
+        // std::cout << "[Log] Insertando Nodo<" << typeid(T).name() << ">: " << dat << std::endl;
+    }
+
+    T obtYEliMin() {
+        if (cab == nullptr) throw std::out_of_range("Lista vacia.");
+
+        Nodo<T>* act = cab;
+        Nodo<T>* ant = nullptr;
+        Nodo<T>* minN = cab;
+        Nodo<T>* antMinN = nullptr;
+        T minV = cab->dat;
+
+        while (act->sig != nullptr) {
+            ant = act;
+            act = act->sig;
+            if (act->dat < minV) {
+                minV = act->dat;
+                minN = act;
+                antMinN = ant;
+            }
+        }
+
+        if (minN == cab) {
+            cab = cab->sig;
+        } else {
+            antMinN->sig = minN->sig;
+        }
+        
+        T res = minN->dat;
+        std::cout << "  [Log] Eliminando valor: " << res << std::endl;
+        delete minN;
+        return res;
+    }
+
+    float calcProm() const {
+        if (cab == nullptr) return 0.0f;
+
+        T sum = T(); 
+        int cnt = 0;
+        Nodo<T>* act = cab;
+
+        while (act != nullptr) {
+            sum = sum + act->dat;
+            cnt++;
+            act = act->sig;
+        }
+
+        if (cnt == 0) return 0.0f;
+        
+        // Uso de casting para division
+        return static_cast<float>(sum) / cnt;
+    }
+    
+    int obtCnt() const {
+        int cnt = 0;
+        Nodo<T>* act = cab;
+        while (act != nullptr) {
+            cnt++;
+            act = act->sig;
+        }
+        return cnt;
+    }
+    
+    void impr() const {
+        Nodo<T>* act = cab;
+        std::cout << "[";
+        while (act != nullptr) {
+            std::cout << act->dat;
+            if (act->sig != nullptr) {
+                std::cout << ", ";
+            }
+            act = act->sig;
+        }
+        std::cout << "]";
+    }
+};
+
+#endif 
+
+#include "SensorBase.h"
+#include "SensorTemp.h"
+#include "SensorPres.h"
+#include <iostream>
+
+// Estructura para Nodo de la Lista de Gestión Polimórfica
+struct NodoG {
+    SensorBase* sns;
+    NodoG* sig;
+
+    NodoG(SensorBase* s) : sns(s), sig(nullptr) {}
+};
+
+class ListaGest {
+private:
+    NodoG* cab;
+
+public:
+    ListaGest() : cab(nullptr) {}
+
+    ~ListaGest() {
+        std::cout << "\n--- Liberación de Memoria en Cascada ---" << std::endl;
+        NodoG* act = cab;
+        while (act != nullptr) {
+            NodoG* prox = act->sig;
+            
+            std::cout << "[Destructor General] Liberando Nodo: " << act->sns->obtNom() << "." << std::endl;
+            delete act->sns; // ******* Llamada al destructor virtual *******
+            delete act;
+            act = prox;
+        }
+        cab = nullptr;
+    }
+
+    void insFin(SensorBase* sns) {
+        NodoG* nvo = new NodoG(sns);
+        if (cab == nullptr) {
+            cab = nvo;
+        } else {
+            NodoG* act = cab;
+            while (act->sig != nullptr) {
+                act = act->sig;
+            }
+            act->sig = nvo;
+        }
+    }
+
+    SensorBase* busNom(const char* nom) {
+        NodoG* act = cab;
+        while (act != nullptr) {
+            if (strcmp(act->sns->obtNom(), nom) == 0) {
+                return act->sns;
+            }
+            act = act->sig;
+        }
+        return nullptr;
+    }
+
+    void procTodo() {
+        std::cout << "\n--- Ejecutando Procesamiento Polimórfico ---" << std::endl;
+        NodoG* act = cab;
+        while (act != nullptr) {
+            std::cout << "-> Procesando Sensor " << act->sns->obtNom() << "..." << std::endl;
+            act->sns->procLect();
+            act = act->sig;
+        }
+    }
+};
+
+int main() {
+    // Nota: El manejo real del puerto serial (Arduino) se omite por ser simulación
+    // pero la lógica de recibir el dato (int o float) e insertarlo se mantiene.
+
+    ListaGest lstG;
+
+    std::cout << "--- Sistema IoT de Monitoreo Polimórfico ---" << std::endl;
+
+    std::cout << "\nOpción 1: Crear Sensor (Tipo Temp - FLOAT)" << std::endl;
+    SensorBase* snsT = new SensorTemperatura("T-001");
+    lstG.insFin(snsT);
+    std::cout << "Sensor 'T-001' creado e insertado en la lista de gestión." << std::endl;
+
+    std::cout << "\nOpción 2: Crear Sensor (Tipo Presion - INT)" << std::endl;
+    SensorBase* snsP = new SensorPresion("P-105");
+    lstG.insFin(snsP);
+    std::cout << "Sensor 'P-105' creado e insertado en la lista de gestión." << std::endl;
+
+    std::cout << "\nOpción 3: Registrar Lectura" << std::endl;
+    snsT->regLect(45.3f);
+    snsT->regLect(42.1f);
+    snsT->regLect(48.5f);
+    std::cout << "ID: T-001. Valores (45.3, 42.1, 48.5) registrados." << std::endl;
+
+    snsP->regLect(80);
+    snsP->regLect(85);
+    snsP->regLect(90);
+    std::cout << "ID: P-105. Valores (80, 85, 90) registrados." << std::endl;
+    
+    lstG.procTodo();
+
+    // 4. CIERRE Y LIBERACIÓN DE MEMORIA
+    std::cout << "\nOpción 5: Cerrar Sistema (Liberar Memoria)" << std::endl;
+
+    return 0;
+}
+
+#ifndef SENS_B_H
+#define SENS_B_H
+
+#include <iostream>
+#include <cstring>
+
+class SensorBase {
+protected:
+    char nom[50]; 
+
+public:
+    virtual ~SensorBase() {
+        std::cout << "  [Destructor SensorBase] Liberado ID: " << nom << std::endl;
+    }
+
+    virtual void procLect() = 0; // Procesar Lectura
+    virtual void imprInf() const = 0; // Imprimir Información
+
+    const char* obtNom() const { return nom; }
+
+    virtual void regLect(float val) {}
+    virtual void regLect(int val) {}
+};
+
+#endif
+
+#ifndef SENS_PRS_H
+#define SENS_PRS_H
+
+#include "SensorBase.h"
+#include "ListaSensor.h"
+
+class SensorPresion : public SensorBase {
+private:
+    ListaSensor<int> hist;
+
+public:
+    SensorPresion(const char* id) {
+        strncpy(nom, id, 49);
+        nom[49] = '\0';
+    }
+
+    ~SensorPresion() override {
+        std::cout << "  [Destructor Sensor Presion] Liberando Lista Interna..." << std::endl;
+    }
+
+    // Registro de Lectura (Sobrecarga para int)
+    void regLect(int val) override {
+        hist.insFin(val);
+    }
+
+    void procLect() override {
+        if (hist.obtCnt() == 0) {
+            std::cout << "[" << nom << "] (Presion): No hay lecturas para procesar." << std::endl;
+            return;
+        }
+
+        float prom = hist.calcProm();
+        
+        std::cout << "[" << nom << "] (Presion): Promedio de lecturas: " << prom << ".";
+        imprInf();
+    }
+
+    void imprInf() const override {
+        std::cout << "  [Info " << nom << "]: Lecturas (" << hist.obtCnt() << "): ";
+        hist.impr();
+        std::cout << std::endl;
+    }
+};
+
+#endif
+
+#ifndef SENS_PRS_H
+#define SENS_PRS_H
+
+#include "SensorBase.h"
+#include "ListaSensor.h"
+
+class SensorPresion : public SensorBase {
+private:
+    ListaSensor<int> hist;
+
+public:
+    SensorPresion(const char* id) {
+        strncpy(nom, id, 49);
+        nom[49] = '\0';
+    }
+
+    ~SensorPresion() override {
+        std::cout << "  [Destructor Sensor Presion] Liberando Lista Interna..." << std::endl;
+    }
+
+    void regLect(int val) override {
+        hist.insFin(val);
+    }
+
+    void procLect() override {
+        if (hist.obtCnt() == 0) {
+            std::cout << "[" << nom << "] (Presion): No hay lecturas para procesar." << std::endl;
+            return;
+        }
+
+        float prom = hist.calcProm();
+        
+        std::cout << "[" << nom << "] (Presion): Promedio de lecturas: " << prom << ".";
+        imprInf();
+    }
+
+    void imprInf() const override {
+        std::cout << "  [Info " << nom << "]: Lecturas (" << hist.obtCnt() << "): ";
+        hist.impr();
+        std::cout << std::endl;
+    }
+};
+
+#endif
+
+#ifndef SENS_TMP_H
+#define SENS_TMP_H
+
+#include "SensorBase.h"
+#include "ListaSensor.h"
+
+class SensorTemperatura : public SensorBase {
+private:
+    ListaSensor<float> hist;
+
+public:
+    SensorTemperatura(const char* id) {
+        strncpy(nom, id, 49);
+        nom[49] = '\0';
+    }
+
+    ~SensorTemperatura() override {
+        std::cout << "  [Destructor Sensor Temp] Liberando Lista Interna..." << std::endl;
+    }
+
+    void regLect(float val) override {
+        hist.insFin(val);
+    }
+
+    void procLect() override {
+        if (hist.obtCnt() == 0) {
+            std::cout << "[" << nom << "] (Temperatura): No hay lecturas para procesar." << std::endl;
+            return;
+        }
+        
+        float minV = hist.obtYEliMin();
+        float promR = hist.calcProm();
+
+        std::cout << "[" << nom << "] (Temperatura): Lectura más baja (" << minV << ") eliminada. Promedio restante: " << promR << "." << std::endl;
+        imprInf();
+    }
+
+    void imprInf() const override {
+        std::cout << "  [Info " << nom << "]: Lecturas restantes (" << hist.obtCnt() << "): ";
+        hist.impr();
+        std::cout << std::endl;
+    }
+};
+
+#endif // SENS_TMP_H
